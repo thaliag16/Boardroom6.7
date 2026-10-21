@@ -21,6 +21,18 @@ A Claude Code skill that puts your AI advisors in one room and makes them argue:
 
 Everything is saved to `~/.boardroom/<date>-<topic>/` (`brief.md`, `transcript.md`, `verdict.md`).
 
+## Cost modes
+
+| Mode | Say | Panelists run on | Rounds |
+|---|---|---|---|
+| quick | "quick boardroom: …" | Haiku, no tool use | openings + synthesis |
+| standard (default) | `/boardroom …` | Sonnet, ≤2 tool calls each | openings, rebuttals, crux only if needed |
+| deep | "deep boardroom: …" | your session model | up to 3 rounds, full research |
+
+Panelists load compact core files (~750–1,100 tokens each) instead of their full knowledge bases.
+The gstack partner reads a 750-token digest instead of ~25,000 tokens of raw gstack skills. Rebuttals
+reuse each panelist's cached context and get compressed digests of the others' openings.
+
 ## Install
 
 Install the two advisor repos first (each has its own `./setup.sh`), and gstack. Then:

@@ -1,6 +1,6 @@
 ---
 name: boardroom
-description: Convene a debate between advisor agents - Paul Graham (paul-graham), Aswath Damodaran (damodaran), and a gstack/YC partner (gstack-partner) - on a startup idea, company, plan, raise, or valuation. Runs independent opening positions, cross-examination rebuttals, an optional crux round, then a moderated synthesis with consensus, real disagreements, a decision and next actions. Use for "/boardroom", "have PG and Damodaran debate", "get all my advisors to weigh in", "debate this idea", "advisor panel".
+description: Debate between advisor agents (paul-graham, damodaran, gstack-partner) on an idea, company, raise, or valuation: openings, cross-examination, synthesis with decision and actions. Quick/standard/deep cost modes. Triggers: "/boardroom", "have my advisors debate", "advisor panel".
 ---
 
 # /boardroom — your advisors, in one room, arguing
@@ -8,6 +8,28 @@ description: Convene a debate between advisor agents - Paul Graham (paul-graham)
 You are the **moderator**. You don't take a side until the synthesis. Your job is to set up a fair
 question, make the panelists actually engage with one another (not just give three monologues),
 find the cruxes, and turn the disagreement into a decision.
+
+## Cost modes (pick before starting; default **standard**)
+
+| Mode | Trigger words | Panelist model | Rounds | Panelist tools | Word caps (open / rebut / crux) |
+|---|---|---|---|---|---|
+| **quick** | "quick", "fast", "cheap" | `haiku` | 1 + synthesis | none (brief only) | 150 / – / – |
+| **standard** | default | `sonnet` | 2 (+ crux only if verdicts conflict) | ≤2 calls each, only for a decisive fact | 200 / 120 / 100 |
+| **deep** | "deep", "thorough", "full research" | session model (omit `model`) | up to 3 | as needed | 350 / 250 / 150 |
+
+Pass the mode's model as the Agent tool's `model` parameter. The moderator (you) always runs on the
+session model, because the synthesis is where judgment matters most. Tell the user which mode you're
+using in one line, and that they can ask for "deep" or "quick".
+
+**Token rules for every mode:**
+- Panelists load only their `core.md` (or `gstack-lens.md`) plus targeted `kb` sections, never whole
+  knowledge files or indexes. Their agent files already say this; repeat it in the prompt.
+- Send the **brief**, not raw documents (keep it under 250 words). Name files the panelist *may*
+  read if they need them, rather than pasting them.
+- Round 2 goes through **SendMessage** to the same agent, which reuses its cached context. Send a
+  **compressed digest** of the other openings (the verdict plus the top two claims each, about 60
+  words per panelist), not the full text.
+- Skip round 3 unless final verdicts actually conflict on something that changes the decision.
 
 ## 0. Check the panel
 
@@ -48,17 +70,18 @@ has to make.
 ## 2. Round 1: opening positions (independent, in parallel)
 
 Spawn all panelists **in a single message** (parallel Agent calls, each with
-`run_in_background: false`). They must not see each other's answers yet. Give each one the full
+`run_in_background: false` and the mode's `model`). They must not see each other's answers yet. Give each one the full
 brief plus:
 
 > You are on a panel with other advisors who reason from different frameworks. Give your
-> **opening position** on the motion, in your own framework and voice, in under 350 words:
+> **opening position** on the motion, in your own framework and voice, within the word cap I give you:
 > 1. **Verdict** (one sentence; take a side).
 > 2. **Your three strongest reasons**, citing your sources.
 > 3. **The biggest risk or flaw** you see.
 > 4. **The one question you'd most want answered** before deciding.
 > 5. **What evidence would change your mind.**
-> Do your own research and calculations with your tools if useful. Don't hedge into mush.
+> Load only your core file and the knowledge sections you need. Tool budget: <mode budget>; use a
+> tool only for a fact that would change your verdict. Don't hedge into mush.
 
 Record each opening in `transcript.md` under `## Round 1`.
 
@@ -67,9 +90,10 @@ Record each opening in `transcript.md` under `## Round 1`.
 Continue each panelist **with its own context** using SendMessage (load it with ToolSearch
 `select:SendMessage` if needed), addressed to the agent ID returned in round 1. If continuation
 isn't available, spawn a fresh agent of the same type with the brief and round-1 transcript.
-Send each one the **other** panelists' openings, with:
+Send each one a compressed digest of the **other** panelists' openings (verdict plus top two
+claims each), with:
 
-> Here are the other panelists' openings. In under 250 words:
+> Here's a digest of the other panelists' openings. Within the word cap:
 > 1. **Your strongest disagreement** with a specific claim (quote it and say why it's wrong in
 >    your framework).
 > 2. **What you concede**: the best point another panelist made that you hadn't weighed enough.
@@ -84,7 +108,7 @@ Find the **one or two disagreements that actually change the decision** (not dif
 wording). If panelists still conflict on a crux, put a single targeted question to just those
 panelists, for example: *"PG says the 40% month-over-month growth makes the valuation irrelevant;
 Damodaran says a $15M post implies a 25% target margin. PG: what margin do you think this business
-reaches? Damodaran: what growth would make $15M reasonable?"* Keep the answers under 150 words and record them under `## Round 3`.
+reaches? Damodaran: what growth would make $15M reasonable?"* Keep the answers within the crux cap and record them under `## Round 3`.
 
 ## 5. Synthesis (you, the moderator)
 
